@@ -1,0 +1,45 @@
+- name: install mysql
+  apt:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - mysql-server
+    - mysql-client
+    - python3-mysqldb
+
+- name: start mysql
+  service:
+    name: mysql
+    state: started
+    enabled: yes
+
+- name: allow remote connect 
+  replace:
+    path: /etc/mysql/mysql.conf.d/mysqld.cnf
+    regexp: '^bind-address'
+    replace: '# bind-address'
+  notify: restart mysql
+
+- name: create user
+  community.mysql.mysql_user:
+    name: "{{ mysql_user_name }}"
+    password: "{{ mysql_user_password }}"
+    host: "%"
+    state: present
+
+- name: create database
+  community.mysql.mysql_db:
+    name: "{{ item }}"
+    encoding: utf8mb4
+    state: present
+  with_items: "{{ mysql_databases }}"
+
+- name: grant privileges
+  community.mysql.mysql_user:
+    name: "{{ mysql_user_name }}"
+    host: "%"
+    append_privs: yes
+    priv: "{{ item }}.*:ALL"
+    state: present
+  with_items: "{{ mysql_databases }}"
+  notify: restart mysql
